@@ -1,8 +1,6 @@
 ---
-title: "Group Project"
-author: "Group 7"
-format: pdf
-editor: visual
+title: "Churn_Analysis"
+author: "Swayamshree Mohanty"
 ---
 
 ```{r}
@@ -259,3 +257,4 @@ cat("- Engagement metrics (app visits, community involvement) are strong retenti
 cat("- LightGBM outperforms other models in accuracy and efficiency.\n")
 cat("- Offering incentives to high-risk customers may reduce churn.\n")
 ```
+
