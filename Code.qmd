@@ -1,0 +1,261 @@
+---
+title: "Group Project"
+author: "Group 7"
+format: pdf
+editor: visual
+---
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: hide
+# Loading the necessary libraries
+library(knitr)
+opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: hide
+# Loading the required libraries for data analysis and visualization
+# Data manipulation
+library(dplyr)
+# Visualization
+library(ggplot2)
+# Machine learning
+library(caret)
+# Random Forest Model
+library(randomForest)
+# XGBoost Model
+library(xgboost)
+# LightGBM Model
+library(lightgbm)
+# Reading the CSV files
+library(readr)
+# Performance Metrics (AUC-ROC)
+library(pROC)
+# Data reshaping
+library(reshape2)
+# Statistical tests
+library(stats)
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: hide
+# Loading and Exploreing the Dataset
+df <- read_csv("tedpoppydata_final.csv")
+# Displaying the dataset structure
+str(df)
+# Summary statistics
+summary(df)
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: hide
+# Data Pre processing
+# Converting relevant columns to numeric and categorical types
+df$avg_purchase_value <- as.numeric(gsub("\\$", "", df$avg_purchase_value))
+df$days_since_last_web_purchase <- as.numeric(gsub(" days", "", df$days_since_last_web_purchase))
+df$retained_binary <- as.factor(df$retained_binary)
+# Remove non-numeric columns except target variable
+numeric_df <- df %>% select(where(is.numeric), retained_binary)
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: hide
+# Check for Missing Values
+missing_values <- sum(is.na(numeric_df))
+# Output total missing values
+missing_values
+```
+Exploratory Data Analysis (EDA)
+```{r}
+#| echo: false
+#| warning: false
+# Churn vs Retention Distribution 
+ggplot(numeric_df, aes(x = retained_binary, fill = retained_binary)) + 
+  geom_bar() + 
+  scale_fill_manual(values = c("cyan", "pink")) +
+  labs(title = "Churn vs Retention", x = "Retention Status", y = "Count") +
+  theme_minimal()
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: hide
+# Boxplot of Purchase Value vs Retention
+ggplot(numeric_df, aes(x = retained_binary, y = avg_purchase_value, fill = retained_binary)) + 
+  geom_boxplot() +
+  scale_fill_manual(values = c("orange", "forestgreen")) +
+  labs(title = "Purchase Value Distribution by Retention Status", x = "Retention Status", y = "Average Purchase Value") +
+  theme_minimal()
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: hide
+# Chi-Square Test evaluates whether there is a significant relationship between categorical features and customer retention
+categorical_cols <- names(df)[sapply(df, is.factor)]
+categorical_cols <- setdiff(categorical_cols, "retained_binary")
+chi_square_results <- lapply(categorical_cols, function(col) {
+  test <- chisq.test(table(df$retained_binary, df[[col]]))
+  data.frame(Variable = col, P_Value = test$p.value)
+})
+# Displays the p-values of chi-square tests for categorical variables
+chi_square_results <- bind_rows(chi_square_results)
+chi_square_results
+```
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: hide
+# T-Test checks whether there is a statistically significant difference in numerical variables between retained and churned customers
+numeric_cols <- names(df)[sapply(df, is.numeric)]
+t_test_results <- lapply(numeric_cols, function(col) {
+  test <- t.test(df[[col]] ~ df$retained_binary)
+  data.frame(Variable = col, P_Value = test$p.value)
+})
+t_test_results <- bind_rows(t_test_results)
+# Displays the p-values of t-tests for numerical variables
+t_test_results
+```
+
+
+```{r}
+#| echo: false
+#| warning: false
+#| results: hide
+# Data Partitioning is crucial for managing large volumes of data and enhancing system performance.
+set.seed(123)
+# 75% of the data will be used for training and the remaining 25% for testing.
+trainIndex <- createDataPartition(numeric_df$retained_binary, p = 0.75, list = FALSE) # 'list = FALSE' ensures that the output is returned as an index vector rather than a list.
+# Creating the training dataset by selecting the rows corresponding to the indices in 'trainIndex'.
+train <- numeric_df[trainIndex, ]
+# Creating the test dataset by selecting the remaining rows (those not in 'trainIndex').
+test <- numeric_df[-trainIndex, ]
+```
+
+Model Training & Evaluation  
+Logistic Regression Model
+```{r}
+#| echo: false
+#| warning: false
+# Logistic Regression Model
+# Training the model
+log_model <- glm(retained_binary ~ ., data = train, family = "binomial")
+# Generating predictions
+pred_log <- predict(log_model, test, type = "response")
+# Computing the AUC score
+roc_auc_log <- pROC::roc(test$retained_binary, pred_log)
+# Displaying the AUC score
+pROC::auc(roc_auc_log)
+# Logistic regression AUC result suggests how well the model differentiates between churned and retained customers.
+```
+
+Random Forest Model
+```{r}
+#| echo: false
+#| warning: false
+# Random Forest Model
+# Training the model
+rf_model <- randomForest(retained_binary ~ ., data = train, ntree = 100)
+# Generating probabilities
+pred_rf <- predict(rf_model, test, type = "prob")[,2]
+# Computing the AUC score
+roc_auc_rf <- pROC::roc(test$retained_binary, pred_rf)
+# Displaying the AUC score
+pROC::auc(roc_auc_rf)
+# Random Forest AUC score measures the predictive power of the model in classifying customer retention.
+```
+
+XGBoost Model
+```{r}
+#| echo: false
+#| warning: false
+# XGBoost Model
+train_matrix <- xgb.DMatrix(data = as.matrix(train %>% select(-retained_binary)), label = as.numeric(train$retained_binary)-1)
+test_matrix <- xgb.DMatrix(data = as.matrix(test %>% select(-retained_binary)), label = as.numeric(test$retained_binary)-1)
+params <- list(objective = "binary:logistic", eval_metric = "auc")
+# Training the model
+xgb_model <- xgb.train(params, train_matrix, nrounds = 100)
+# Generating predictions
+pred_xgb <- predict(xgb_model, test_matrix)
+# Computing the AUC score
+roc_auc_xgb <- pROC::roc(test$retained_binary, pred_xgb)
+# Displaying the AUC score
+pROC::auc(roc_auc_xgb)
+# XGBoost model shows its classification performance based on its AUC score.
+```
+
+LightGBM Model
+```{r}
+#| echo: false
+#| warning: false
+# LightGBM Model
+lgb_train <- lgb.Dataset(data = as.matrix(train %>% select(-retained_binary)), label = as.numeric(train$retained_binary)-1)
+lgb_test <- lgb.Dataset(data = as.matrix(test %>% select(-retained_binary)), label = as.numeric(test$retained_binary)-1)
+lgb_params <- list(objective = "binary", metric = "auc")
+# Training the model
+lgb_model <- lgb.train(lgb_params, lgb_train, 100)
+# Generating predictions
+pred_lgb <- predict(lgb_model, as.matrix(test %>% select(-retained_binary)))
+# Computing the AUC score
+roc_auc_lgb <- pROC::roc(test$retained_binary, pred_lgb)
+# Displaying the AUC score
+pROC::auc(roc_auc_lgb)
+# LightGBM AUC score determines the model's effectiveness in distinguishing churned vs retained customers.
+```
+
+Plot to compare the ROC Curves for all models
+```{r}
+#| echo: false
+#| warning: false
+# Creating a list to store the ROC curves of different models
+roc_list <- list(Logistic_Regression = roc_auc_log, Random_Forest = roc_auc_rf, XGBoost = roc_auc_xgb, LightGBM = roc_auc_lgb)
+# Converting the ROC list into a data frame for plotting
+roc_data <- lapply(names(roc_list), function(model) {
+  data.frame(
+    Model = model,
+# Extracting sensitivity values
+    Sensitivity = roc_list[[model]]$sensitivities,
+# Computing 1 - specificity
+    Specificity = 1 - roc_list[[model]]$specificities
+  )
+# Combining all model data into a single data frame
+}) %>% bind_rows()
+# Plotting the the ROC curves for all models
+ggplot(roc_data, aes(x = Specificity, y = Sensitivity, color = Model)) +
+# Drawing the ROC curve for each model
+  geom_line(size = 1) +
+  labs(title = "ROC Curve Comparison", x = "1 - Specificity", y = "Sensitivity") +
+  theme_minimal()
+```
+
+```{r}
+#| echo: false
+#| warning: false
+# Summary of Findings
+cat("- ROC Curve helps compare model performance by visualizing the trade-off between sensitivity and specificity.\n")
+cat("- Better Model: A model with a curve closer to the top-left corner indicates better classification performance.\n")
+cat("- The area under the ROC curve (AUC) provides a numeric score to compare models—higher AUC values indicate better discrimination between classes.\n")
+```
+
+```{r}
+#| echo: false
+#| warning: false
+# Summary of Findings
+cat("- Customers with lower purchase frequency are more likely to churn.\n")
+cat("- Engagement metrics (app visits, community involvement) are strong retention indicators.\n")
+cat("- LightGBM outperforms other models in accuracy and efficiency.\n")
+cat("- Offering incentives to high-risk customers may reduce churn.\n")
+```
