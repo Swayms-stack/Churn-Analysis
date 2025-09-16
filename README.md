@@ -31,6 +31,9 @@ Most importantly, the analysis transforms technical findings into **actionable r
 - **Loyalty status and transaction frequency** reduced churn risk.  
 - **LightGBM** outperformed other models (Accuracy: **87.4%**, AUC-ROC: **0.88**).
 
+<img width="1587" height="2245" alt="Poster" src="https://github.com/user-attachments/assets/7b0568a9-f184-4e72-a783-3b55f682f346" />
+
+
 ---
 
 ## 🛠 Technologies
