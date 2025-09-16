@@ -9,7 +9,6 @@ These insights provide a data-driven foundation for decision-making that balance
 - [Overview](#overview)
 - [Key Findings](#key-findings)
 - [Technologies](#technologies)
-- [Visualizations](#visualizations)
 - [Authors](#authors)
 - [License](#license)
 
@@ -37,7 +36,6 @@ Most importantly, the analysis transforms technical findings into **actionable r
 ## 🛠 Technologies
 - **Languages/Tools**: R, Quarto (`.qmd`)
 - **ML Models**: Logistic Regression, Random Forest, XGBoost, LightGBM  
-- **Visualization**: Matplotlib, Seaborn  
 - **Documentation**: Markdown, Quarto
 
 ---
